@@ -4,6 +4,7 @@ FastAPI 애플리케이션 엔트리포인트
 
 from fastapi import FastAPI, HTTPException
 import uvicorn
+from pydantic import BaseModel
 
 from models import PhoneNumber
 from crud import load_recipients, save_recipients
@@ -11,6 +12,11 @@ from sms_sender import send_sms, broadcast
 from scheduler import start_scheduler
 
 app = FastAPI(title="SMS Notification Server", version="1.0.0")
+
+
+# --- Pydantic 모델 ---
+class MessageBody(BaseModel):
+    body: str
 
 
 # -------------------------
@@ -32,16 +38,17 @@ def list_recipients():
     return load_recipients()
 
 
+@app.post("/send/broadcast", summary="모든 수신자에게 브로드캐스트")
+def broadcast_now(payload: MessageBody):
+    return broadcast(payload.body)
+
+
 @app.post("/send/{phone}", summary="특정 수신자에게 SMS 전송")
-def send_to_one(phone: str, body: str = "실험 알림입니다."):
+def send_to_one(phone: str, payload: MessageBody):
     if phone not in load_recipients():
         raise HTTPException(status_code=404, detail="수신자 목록에 없는 번호입니다.")
-    return send_sms(phone, body)
+    return send_sms(phone, payload.body)
 
-
-@app.post("/send/broadcast", summary="모든 수신자에게 브로드캐스트")
-def broadcast_now(body: str = "실험 알림입니다. 오늘도 좋은 하루 되십시오."):
-    return broadcast(body)
 
 @app.get("/", summary="헬스체크")
 def health():

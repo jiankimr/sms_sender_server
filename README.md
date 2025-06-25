@@ -1,7 +1,7 @@
 SMS 알림 서버 템플릿
 ====================
 로컬 머신(예: EC2, 온-프레미스)에 배포할 수 있는 FastAPI 기반 SMS 발송 서버이다. 
-- AWS Pinpoint 또는 SNS를 통해 Toll-Free/10DLC 번호로 SMS를 전송한다.
+- AWS End User Messaging (Pinpoint SMS and Voice v2)을 통해 SMS를 전송한다.
 - APScheduler로 매일 07:00, 19:00(Asia/Seoul) 자동 브로드캐스트를 예약한다.
 - 간단한 JSON 파일(`recipients.json`)에 수신자 전화번호를 저장한다.
 - REST 엔드포인트를 제공한다.
@@ -14,9 +14,9 @@ SMS 알림 서버 템플릿
 -----------------------------
 AWS_ACCESS_KEY_ID=<access_key>
 AWS_SECRET_ACCESS_KEY=<secret_key>
-AWS_REGION=us-east-1            # Pinpoint/SNS가 Toll-Free 번호를 가진 리전
-SENDER_ID=AIGENT                # 통신사 승인된 Sender ID (선택적, 3~11자)
-TOLL_FREE_NUMBER=+1234567890    # 10DLC / Toll-Free 번호 (E.164 형식)
+AWS_REGION=us-east-1            # Pinpoint SMS and Voice v2 서비스를 사용하는 리전
+SENDER_ID=AIGENT                # AWS에 등록되고 승인된 발신자 ID (선택 사항)
+TOLL_FREE_NUMBER=+1234567890    # AWS에 등록된 발신용 전화번호 (Toll-Free, 10DLC 등. E.164 형식)
 
 의존 패키지
 -----------

@@ -25,9 +25,9 @@ TOLL_FREE_NUMBER = os.getenv("TOLL_FREE_NUMBER")
 if not TOLL_FREE_NUMBER:
     raise RuntimeError("TOLL_FREE_NUMBER 환경 변수가 설정되어 있지 않습니다.")
 
-# boto3 세션 및 SNS 클라이언트 초기화
+# boto3 세션 및 Pinpoint SMS and Voice v2 클라이언트 초기화
 session = Session(region_name=AWS_REGION)
-sns_client = session.client("sns")
+sms_voice_client = session.client("pinpoint-sms-voice-v2")
 
 # 타임존(Asia/Seoul)
 import pytz
