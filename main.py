@@ -4,20 +4,14 @@ FastAPI 애플리케이션 엔트리포인트
 
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from pydantic import BaseModel
 
-from models import PhoneNumber
+from models import PhoneNumber, MessageBody
 from crud import load_recipients, save_recipients
 from sms_sender import send_sms, broadcast
 from scheduler import start_scheduler
 from firestore_client import get_collection_data, get_user_data, get_user_data_by_field, get_user_daily_usage
 
 app = FastAPI(title="SMS Notification Server", version="1.0.0")
-
-
-# --- Pydantic 모델 ---
-class MessageBody(BaseModel):
-    body: str
 
 
 # -------------------------

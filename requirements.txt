@@ -2,7 +2,7 @@ fastapi==0.111.0
 uvicorn[standard]==0.30.0
 apscheduler==3.10.4
 python-dotenv==1.0.1
-pydantic[dotenv]==2.7.0
+pydantic>=2.11.4,<3.0.0
 pytz==2024.1
 firebase-admin==6.9.0
 google-cloud-firestore==2.19.0
