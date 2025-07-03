@@ -1,33 +1,211 @@
 SMS 알림 서버 템플릿
 ====================
 로컬 머신(예: EC2, 온-프레미스)에 배포할 수 있는 FastAPI 기반 SMS 발송 서버이다. 
-- AWS End User Messaging (Pinpoint SMS and Voice v2)을 통해 SMS를 전송한다.
-- APScheduler로 매일 07:00, 19:00(Asia/Seoul) 자동 브로드캐스트를 예약한다.
-- 간단한 JSON 파일(`recipients.json`)에 수신자 전화번호를 저장한다.
-- REST 엔드포인트를 제공한다.
-  - `POST   /recipients`            : 수신자 등록 (전화번호 추가)
-  - `GET    /recipients`            : 수신자 목록 조회
-  - `POST   /send/{phone}`          : 특정 수신자 1회 발송
-  - `POST   /send/broadcast`        : 모든 수신자 즉시 브로드캐스트
+- SOLAPI를 통해 SMS를 전송한다.
+- APScheduler로 매일 07:00, 19:00(Asia/Seoul) 개인화된 사용량 알림을 자동 전송한다.
+- **Google Cloud Firestore의 두 컬렉션을 연동하여 전화번호와 사용량 데이터를 매핑한다.**
+  - `personal_dashboard`: 사용자별 전화번호 정보
+  - `intention_app_user`: 사용자별 앱 사용량 데이터
+
+REST API 엔드포인트
+------------------
+
+### SMS 관련 기능 (관리용)
+- `POST   /send/broadcast`        : 관리자용 즉시 브로드캐스트 (수동)
+
+### Firestore 데이터 조회 기능
+- `GET    /firestore/{collection_name}`                    : 컬렉션 전체 데이터 조회
+- `GET    /firestore/{collection_name}/user/{user_id}`     : 특정 사용자 데이터 조회
+- `GET    /firestore/{collection_name}/filter`             : 필드 값으로 필터링 조회
+- `GET    /firestore/user/{user_id}/usage`                 : 사용자 일일 사용 시간 조회
+
+### 자동 사용량 알림 기능 (테스트용)
+- `POST   /test/morning-notification`                     : 오전 사용량 알림 테스트 (수동 실행)
+- `POST   /test/evening-notification`                     : 오후 사용량 알림 테스트 (수동 실행)
+
+**자동 스케줄러 (핵심 기능):**
+- **오전 7시**: 전화번호가 있는 사용자들에게 각자의 전날 사용량을 개인화된 메시지로 개별 전송
+- **오후 7시**: 전화번호가 있는 사용자들에게 각자의 당일 현재까지 사용량을 개인화된 메시지로 개별 전송
+- **데이터 매핑**: `personal_dashboard`(전화번호) + `intention_app_user`(사용량) 자동 매핑
+
+**개인화된 알림 메시지 예시:**
+- 오전: "김철수님, 어제 2시간 30분 동안 5회 사용하셨군요! 오늘도 열심히 사용해주세요! 💪"
+- 오전 (사용 없음): "박영희님, 어제는 앱을 사용하지 않으셨네요. 오늘은 열심히 사용해주세요! 📱"
+- 오후: "이민수님, 오늘 현재까지 1시간 15분 동안 3회 사용하셨군요! 남은 시간도 열심히 사용해주세요! 🔥"
+- 오후 (사용 없음): "최영수님, 오늘은 아직 앱을 사용하지 않으셨네요. 남은 시간 동안 열심히 사용해주세요! 💪"
+
+### Firestore API 사용 예시
+
+#### 1. 컬렉션 전체 조회
+```bash
+curl -X GET "http://127.0.0.1:8000/firestore/intention_app_user"
+```
+
+#### 2. 특정 사용자 데이터 조회
+```bash
+curl -X GET "http://127.0.0.1:8000/firestore/intention_app_user/user/user123"
+```
+
+#### 3. 전화번호가 있는 사용자 조회 (관리용)
+```bash
+# personal_dashboard에서 전화번호로 검색
+curl -X GET "http://127.0.0.1:8000/firestore/personal_dashboard/filter?field_name=phone&field_value=01012345678"
+```
+
+#### 4. 사용자 일일 사용 시간 조회
+```bash
+# 특정 날짜의 사용 시간
+curl -X GET "http://127.0.0.1:8000/firestore/user/user123/usage?start_date=2024-01-01&end_date=2024-01-01"
+
+# 일주일간 사용 시간
+curl -X GET "http://127.0.0.1:8000/firestore/user/user123/usage?start_date=2024-01-01&end_date=2024-01-07"
+```
+
+#### 5. 자동 사용량 알림 테스트 (개발/테스트용)
+```bash
+# 오전 알림 테스트 - 전화번호가 있는 모든 사용자에게 전날 사용량 개별 전송
+curl -X POST "http://127.0.0.1:8000/test/morning-notification"
+
+# 오후 알림 테스트 - 전화번호가 있는 모든 사용자에게 당일 사용량 개별 전송
+curl -X POST "http://127.0.0.1:8000/test/evening-notification"
+```
+
+**사용 시간 조회 응답 예시:**
+```json
+{
+  "user_id": "user123",
+  "date_range": {
+    "start_date": "2024-01-01",
+    "end_date": "2024-01-01"
+  },
+  "total_usage": {
+    "total_seconds": 7200,
+    "formatted": "02:00:00",
+    "hours": 2,
+    "minutes": 0,
+    "seconds": 0
+  },
+  "session_count": 3,
+  "sessions": [
+    {
+      "session_id": "session_123",
+      "task_name": "작업 1",
+      "start_time": "2024-01-01T09:00:00+09:00",
+      "end_time": "2024-01-01T10:30:00+09:00",
+      "duration_seconds": 5400,
+      "duration_formatted": "01:30:00"
+    }
+  ]
+}
+```
 
 필수 환경 변수 (.env 파일 등)
 -----------------------------
-AWS_ACCESS_KEY_ID=<access_key>
-AWS_SECRET_ACCESS_KEY=<secret_key>
-AWS_REGION=us-east-1            # Pinpoint SMS and Voice v2 서비스를 사용하는 리전
-SENDER_ID=AIGENT                # AWS에 등록되고 승인된 발신자 ID (선택 사항)
-TOLL_FREE_NUMBER=+1234567890    # AWS에 등록된 발신용 전화번호 (Toll-Free, 10DLC 등. E.164 형식)
+
+### SOLAPI 설정
+```bash
+SOLAPI_API_KEY=<your_api_key>           # SOLAPI에서 발급받은 API Key
+SOLAPI_API_SECRET=<your_api_secret>     # SOLAPI에서 발급받은 API Secret
+SENDER_PHONE=01000000000                # 등록된 발신번호 (01000000000 형식, - 제외)
+```
+
+### Firestore 설정 (선택사항)
+```bash
+FIRESTORE_PROJECT_ID=intention-computing-451401    # GCP 프로젝트 ID
+FIRESTORE_DATABASE_ID=intention-computing          # Firestore 데이터베이스 ID
+FIRESTORE_REGION=asia-northeast3                   # Firestore 리전
+```
 
 의존 패키지
 -----------
+```bash
 pip install -r requirements.txt
+```
+
+GCP 및 Firestore 설정
+---------------------
+
+### 1. gcloud CLI 설치 (Mac)
+```bash
+brew install google-cloud-sdk
+```
+
+### 2. Google Cloud 인증
+```bash
+# Google Cloud 로그인
+gcloud auth login
+
+# 프로젝트 설정
+gcloud config set project intention-computing-451401
+
+# Application Default Credentials 설정
+gcloud auth application-default login
+```
+
+### 3. Firestore 데이터베이스 구조
+```
+intention-computing (Database)
+├── personal_dashboard (Collection) - 사용자 기본 정보 및 전화번호
+│   └── {user_id} (Document)
+│       ├── name: string           # 사용자 이름
+│       ├── phone: string          # 전화번호 (01000000000 형식)
+│       ├── pw: string             # 비밀번호
+│       ├── start_date: timestamp  # 시작일
+│       └── stats: object          # 통계 정보
+│           ├── week_1: number
+│           ├── week_2: number
+│           └── week_3: number
+│
+└── intention_app_user (Collection) - 앱 사용량 데이터
+    └── {sanitized_user_id} (Document)
+        ├── user_id: string
+        ├── created_at: timestamp  
+        ├── last_active: timestamp
+        └── sessions (Sub-collection)
+            └── {session_id} (Document)
+                ├── task_name: string
+                ├── intention: string  
+                ├── start_time: timestamp
+                ├── end_time: timestamp
+                ├── device_info: object
+                ├── final_rating: number | null
+                ├── image_cnt: number
+                ├── feedback_cnt: number
+                ├── notification_cnt: number
+                ├── focus_cnt: number
+                ├── distract_cnt: number
+                └── ... (기타 필드들)
+```
 
 서버 실행
 ---------
+```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+FastAPI 생성 API 문서
+--------------------
+서버 실행 후 다음 URL에서 대화형 API 문서를 확인할 수 있습니다:
+- **Swagger UI**: http://127.0.0.1:8000/docs
+- **ReDoc**: http://127.0.0.1:8000/redoc
 
 아키텍처 및 고려사항
 --------------------
-- **데이터 저장소**: 수신자 목록은 별도 데이터베이스 없이 로컬 `recipients.json` 파일에 저장됩니다. 이는 서버를 가볍고 단순하게 유지하기 위함입니다.
-- **동시성 문제 (Concurrency)**: `POST /recipients` 엔드포인트를 통해 동시에 여러 수신자 등록 요청이 발생할 경우, 경쟁 조건(Race Condition)으로 인해 데이터가 누락되거나 중복 저장될 수 있습니다. 
-  - **판단**: 현재 시스템은 운영자가 초기에 수신자를 한 번만 등록하고, 이후에는 수신자 목록을 거의 변경하지 않는 것을 전제로 합니다. 따라서 API를 통한 동적 수신자 추가 시의 동시성 문제는 고려하지 않아도 되는 상황으로 판단했습니다. 만약 API를 통해 수신자를 빈번하게 추가/삭제해야 하는 요구사항이 생긴다면, 파일 잠금(File Locking)이나 데이터베이스를 도입하여 이 문제를 해결해야 합니다.
+- **데이터 아키텍처**: 
+  - `personal_dashboard` 컬렉션: 사용자 기본 정보 및 전화번호 저장
+  - `intention_app_user` 컬렉션: 앱 사용량 데이터 저장 (sessions 서브컬렉션)
+  - 두 컬렉션을 user_id로 매핑하여 전화번호와 사용량 데이터를 연결
+- **Firestore 연동**: Google Cloud Firestore를 통해 사용자 세션 데이터와 사용 시간을 조회할 수 있습니다. `google-cloud-firestore` 라이브러리를 사용하여 multi-database 환경을 지원합니다.
+- **개인화된 알림 시스템**: APScheduler를 사용하여 매일 오전 7시와 오후 7시에 개인화된 사용량 알림을 자동 전송합니다.
+  - `personal_dashboard`에서 전화번호가 있는 사용자만 대상으로 선별
+  - `intention_app_user`에서 각 사용자의 개별 사용량 데이터를 조회
+  - 각 사용자가 본인의 전화번호로 본인의 사용량만 수신 (개인정보 보호)
+  - 사용자명(name)과 사용 시간, 세션 수를 포함한 격려 메시지
+  - 한국 시간대(KST) 기준으로 동작
+- **수신자 관리**: 기존 `recipients.json` 파일 방식에서 Firestore 기반으로 변경되어 더 안정적이고 확장 가능한 구조
+- **데이터 정합성**: 두 컬렉션 모두에 존재하고 유효한 전화번호가 있는 사용자만 SMS 발송 대상에 포함
+
+관련 링크
+---------
+- **Firestore Console**: https://console.cloud.google.com/firestore/databases/intention-computing/data/panel/chat_users/Anonymous?inv=1&invt=Ab1Haw&project=intention-computing-451401
+- **Dashboard GitHub**: https://github.com/wngjs3/intention_dashboard
