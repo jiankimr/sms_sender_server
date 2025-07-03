@@ -22,6 +22,9 @@ SOLAPI_API_KEY = os.getenv("SOLAPI_API_KEY")
 SOLAPI_API_SECRET = os.getenv("SOLAPI_API_SECRET")
 SENDER_PHONE = os.getenv("SENDER_PHONE")  # 발신번호 (01000000000 형식)
 
+# Slack 웹훅 URL
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
+
 if not SOLAPI_API_KEY:
     raise RuntimeError("SOLAPI_API_KEY 환경 변수가 설정되어 있지 않습니다.")
 if not SOLAPI_API_SECRET:

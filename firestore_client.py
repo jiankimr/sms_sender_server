@@ -236,11 +236,12 @@ def get_user_info(user_id: str):
     else:
         return None
 
-def get_users_with_phone():
+def get_users_with_phone(role_filter: str = None):
     """
     personal_dashboard 컬렉션에서 유효한 전화번호가 있는 사용자들과
     intention_app_user 컬렉션의 사용자 ID를 매핑하여 가져옵니다.
     
+    :param role_filter: 특정 role을 가진 사용자만 필터링 (예: "admin")
     :return: 전화번호가 있는 사용자 정보 딕셔너리 리스트 (user_id, phone, name 등 포함)
     """
     db = initialize_firestore()
@@ -264,12 +265,16 @@ def get_users_with_phone():
         # 전화번호가 있고 빈 문자열이 아닌 경우만 확인
         phone = user_data.get('phone', '').strip()
         if phone and user_id in existing_user_ids:
-            # intention_app_user에 실제 존재하는 사용자만 포함
-            users_with_phone.append({
-                'user_id': user_id,
-                'phone': phone,
-                'name': user_data.get('name', user_id),
-                'dashboard_data': user_data
-            })
+            # role 필터링 적용
+            user_role = user_data.get('role', '').strip()
+            if role_filter is None or user_role == role_filter:
+                # intention_app_user에 실제 존재하는 사용자만 포함
+                users_with_phone.append({
+                    'user_id': user_id,
+                    'phone': phone,
+                    'name': user_data.get('name', user_id),
+                    'role': user_role,
+                    'dashboard_data': user_data
+                })
     
     return users_with_phone 

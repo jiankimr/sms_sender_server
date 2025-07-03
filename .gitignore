@@ -11,5 +11,3 @@ env/
 .idea/
 # OS
 .DS_Store
-#수신자 번호
-recipients.json
