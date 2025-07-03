@@ -110,7 +110,7 @@ SOLAPI_API_SECRET=<your_api_secret>     # SOLAPI에서 발급받은 API Secret
 SENDER_PHONE=01000000000                # 등록된 발신번호 (01000000000 형식, - 제외)
 ```
 
-### Slack 웹훅 설정 (선택사항)
+### Slack 웹훅 설정
 ```bash
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...    # Slack 웹훅 URL
 ```
