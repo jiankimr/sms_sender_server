@@ -24,8 +24,8 @@ REST API 엔드포인트
 - `POST   /test/evening-notification`                     : 오후 사용량 알림 테스트 (수동 실행)
 
 **자동 스케줄러 (핵심 기능):**
-- **오전 7시**: role이 "admin"인 사용자들에게 각자의 전날 사용량을 개인화된 메시지로 개별 전송
-- **오후 7시**: role이 "admin"인 사용자들에게 각자의 당일 현재까지 사용량을 개인화된 메시지로 개별 전송
+- **오전 7시**: role이 "real"인 사용자들에게 각자의 전날 사용량을 개인화된 메시지로 개별 전송
+- **오후 7시**: role이 "real"인 사용자들에게 각자의 당일 현재까지 사용량을 개인화된 메시지로 개별 전송
 - **데이터 매핑**: `personal_dashboard`(전화번호, role) + `intention_app_user`(사용량) 자동 매핑
 - **Slack 로깅**: SMS 발송 성공/실패 및 통계를 Slack으로 실시간 알림
 
@@ -47,10 +47,10 @@ curl -X GET "http://127.0.0.1:8000/firestore/intention_app_user"
 curl -X GET "http://127.0.0.1:8000/firestore/intention_app_user/user/user123"
 ```
 
-#### 3. admin role 사용자 조회 (관리용)
+#### 3. real role 사용자 조회 (관리용)
 ```bash
-# personal_dashboard에서 admin role 사용자 조회
-curl -X GET "http://127.0.0.1:8000/firestore/personal_dashboard/filter?field_name=role&field_value=admin"
+# personal_dashboard에서 real role 사용자 조회
+curl -X GET "http://127.0.0.1:8000/firestore/personal_dashboard/filter?field_name=role&field_value=real"
 ```
 
 #### 4. 사용자 일일 사용 시간 조회
@@ -64,10 +64,10 @@ curl -X GET "http://127.0.0.1:8000/firestore/user/user123/usage?start_date=2024-
 
 #### 5. 자동 사용량 알림 테스트 (개발/테스트용)
 ```bash
-# 오전 알림 테스트 - admin role 사용자에게 전날 사용량 개별 전송
+# 오전 알림 테스트 - real role 사용자에게 전날 사용량 개별 전송
 curl -X POST "http://127.0.0.1:8000/test/morning-notification"
 
-# 오후 알림 테스트 - admin role 사용자에게 당일 사용량 개별 전송
+# 오후 알림 테스트 - real role 사용자에게 당일 사용량 개별 전송
 curl -X POST "http://127.0.0.1:8000/test/evening-notification"
 ```
 
@@ -155,7 +155,7 @@ intention-computing (Database)
 │   └── {user_id} (Document)
 │       ├── name: string           # 사용자 이름
 │       ├── phone: string          # 전화번호 (01000000000 형식, 하이픈 포함/미포함 모두 지원)
-│       ├── role: string           # 사용자 역할 (admin, beta 등)
+│       ├── role: string           # 사용자 역할 (real, beta 등)
 │       ├── pw: string             # 비밀번호
 │       ├── start_date: timestamp  # 시작일
 │       └── stats: object          # 통계 정보
@@ -204,7 +204,7 @@ FastAPI 생성 API 문서
   - 두 컬렉션을 user_id로 매핑하여 전화번호와 사용량 데이터를 연결
 - **Firestore 연동**: Google Cloud Firestore를 통해 사용자 세션 데이터와 사용 시간을 조회할 수 있습니다. `google-cloud-firestore` 라이브러리를 사용하여 multi-database 환경을 지원합니다.
 - **개인화된 알림 시스템**: APScheduler를 사용하여 매일 오전 7시와 오후 7시에 개인화된 사용량 알림을 자동 전송합니다.
-  - `personal_dashboard`에서 전화번호가 있고 role이 "admin"인 사용자만 대상으로 선별
+  - `personal_dashboard`에서 전화번호가 있고 role이 "real"인 사용자만 대상으로 선별
   - 전화번호 정규화: 하이픈 포함/미포함 형식 모두 지원
   - Slack 로깅: SMS 발송 결과를 실시간으로 Slack에 알림
   - `intention_app_user`에서 각 사용자의 개별 사용량 데이터를 조회

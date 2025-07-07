@@ -15,16 +15,16 @@ __all__ = ["start_scheduler"]
 
 
 def _morning_usage_notification():
-    """오전 7시: 전날 사용량 알림 (admin role 사용자만)"""
+    """오전 7시: 전날 사용량 알림 (real role 사용자만)"""
     try:
         # 전날 날짜 계산 (KST 기준)
         yesterday = (datetime.now(TIMEZONE) - timedelta(days=1)).strftime('%Y-%m-%d')
         
-        # admin role을 가진 사용자들만 조회
-        users_with_phone = get_users_with_phone(role_filter="admin")
+        # real role을 가진 사용자들만 조회
+        users_with_phone = get_users_with_phone(role_filter="real")
         
         if not users_with_phone:
-            print("[Morning Scheduler] admin role을 가진 사용자가 없습니다.")
+            print("[Morning Scheduler] real role을 가진 사용자가 없습니다.")
             return
         
         success_count = 0
@@ -68,7 +68,7 @@ def _morning_usage_notification():
             except Exception as e:
                 print(f"[Morning Scheduler] User {user_id} 사용량 조회 실패: {e}")
         
-        print(f"[Morning Scheduler] 전날 admin 사용량 알림 완료: {success_count}/{total_count}명 전송 성공, {failed_count}명 실패")
+        print(f"[Morning Scheduler] 전날 real 사용량 알림 완료: {success_count}/{total_count}명 전송 성공, {failed_count}명 실패")
         
         # 슬랙에 최종 결과 로깅
         slack_logger.log_broadcast_result(total_count, success_count, failed_count)
@@ -78,16 +78,16 @@ def _morning_usage_notification():
 
 
 def _evening_usage_notification():
-    """오후 7시: 당일 사용량 알림 (admin role 사용자만)"""
+    """오후 7시: 당일 사용량 알림 (real role 사용자만)"""
     try:
         # 오늘 날짜 계산 (KST 기준)
         today = datetime.now(TIMEZONE).strftime('%Y-%m-%d')
         
-        # admin role을 가진 사용자들만 조회
-        users_with_phone = get_users_with_phone(role_filter="admin")
+        # real role을 가진 사용자들만 조회
+        users_with_phone = get_users_with_phone(role_filter="real")
         
         if not users_with_phone:
-            print("[Evening Scheduler] admin role을 가진 사용자가 없습니다.")
+            print("[Evening Scheduler] real role을 가진 사용자가 없습니다.")
             return
         
         success_count = 0
@@ -131,7 +131,7 @@ def _evening_usage_notification():
             except Exception as e:
                 print(f"[Evening Scheduler] User {user_id} 사용량 조회 실패: {e}")
         
-        print(f"[Evening Scheduler] 당일 admin 사용량 알림 완료: {success_count}/{total_count}명 전송 성공, {failed_count}명 실패")
+        print(f"[Evening Scheduler] 당일 real 사용량 알림 완료: {success_count}/{total_count}명 전송 성공, {failed_count}명 실패")
         
         # 슬랙에 최종 결과 로깅
         slack_logger.log_broadcast_result(total_count, success_count, failed_count)
@@ -148,7 +148,7 @@ def start_scheduler():
     scheduler.add_job(_evening_usage_notification, CronTrigger(hour=19, minute=0), name="evening_usage_notification")
     
     scheduler.start()
-    print("[Scheduler] admin 사용자 대상 사용량 알림 스케줄러 시작됨")
+    print("[Scheduler] real 사용자 대상 사용량 알림 스케줄러 시작됨")
     
     # 스케줄러 상태 확인
     print(f"[Scheduler] 등록된 작업 수: {len(scheduler.get_jobs())}")

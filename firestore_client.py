@@ -241,7 +241,7 @@ def get_users_with_phone(role_filter: str = None):
     personal_dashboard 컬렉션에서 유효한 전화번호가 있는 사용자들과
     intention_app_user 컬렉션의 사용자 ID를 매핑하여 가져옵니다.
     
-    :param role_filter: 특정 role을 가진 사용자만 필터링 (예: "admin")
+    :param role_filter: 특정 role을 가진 사용자만 필터링 (예: "real")
     :return: 전화번호가 있는 사용자 정보 딕셔너리 리스트 (user_id, phone, name 등 포함)
     """
     db = initialize_firestore()
