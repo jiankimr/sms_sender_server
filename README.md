@@ -285,3 +285,157 @@ curl http://34.64.237.127:8000/firestore/personal_dashboard/filter?field_name=ro
 - **서버 중지**: GCP 콘솔에서 VM 인스턴스를 중지하거나 삭제하기 전까지 계속 운영됩니다
 - **비용 관리**: VM 운영 비용이 지속적으로 발생하니 필요시 콘솔에서 관리하세요
 - **로그 모니터링**: Slack으로 SMS 발송 결과가 실시간으로 알림되므로 모니터링 가능합니다
+
+---
+
+## 🛠️ GCP VM 배포 과정
+
+### 1. SSH 접속 설정
+```bash
+# SSH config 설정 (~/.ssh/config)
+Host intention-dashboard
+    HostName 34.64.237.127
+    IdentityFile ~/.ssh/id_rsa
+    User jiankimr
+
+# SSH 접속 테스트
+ssh intention-dashboard
+```
+
+### 2. 서버 환경 준비
+```bash
+# 시스템 업데이트 및 Python 환경 설치
+sudo apt update
+sudo apt install -y python3-pip python3-venv
+
+# 프로젝트 디렉토리로 이동
+cd sms_sender_server
+```
+
+### 3. Python 가상환경 설정
+```bash
+# 가상환경 생성
+python3 -m venv venv
+
+# 가상환경 활성화
+source venv/bin/activate
+
+# 의존성 패키지 설치
+pip install -r requirements.txt
+```
+
+### 4. GCP 인증 확인
+```bash
+# gcloud 설정 확인
+gcloud config list
+
+# Firestore 접근 테스트
+python -c "import google.cloud.firestore; print('Firestore connection OK')"
+```
+
+### 5. systemd 서비스 등록
+```bash
+# 서비스 파일 생성
+sudo tee /etc/systemd/system/sms-sender.service << EOF
+[Unit]
+Description=SMS Sender FastAPI Service
+After=network.target
+
+[Service]
+Type=simple
+User=jiankimr
+WorkingDirectory=/home/jiankimr/sms_sender_server
+Environment=PATH=/home/jiankimr/sms_sender_server/venv/bin
+ExecStart=/home/jiankimr/sms_sender_server/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# systemd 서비스 활성화 및 시작
+sudo systemctl daemon-reload
+sudo systemctl enable sms-sender.service
+sudo systemctl start sms-sender.service
+```
+
+### 6. 방화벽 설정
+```bash
+# GCP 방화벽 규칙 생성
+sudo gcloud compute firewall-rules create allow-sms-server \
+    --allow tcp:8000 \
+    --source-ranges 0.0.0.0/0 \
+    --description 'Allow SMS server on port 8000'
+```
+
+### 7. 배포 확인
+```bash
+# 서비스 상태 확인
+sudo systemctl status sms-sender.service
+
+# API 접근 테스트 (로컬)
+curl http://localhost:8000/
+
+# API 접근 테스트 (외부)
+curl http://34.64.237.127:8000/
+
+# API 문서 확인
+curl http://34.64.237.127:8000/docs
+```
+
+### 8. 배포 완료 체크리스트
+- [ ] SSH 접속 성공
+- [ ] Python 가상환경 생성 및 패키지 설치 완료
+- [ ] GCP 인증 설정 확인
+- [ ] systemd 서비스 등록 및 실행 성공
+- [ ] 방화벽 8000번 포트 개방
+- [ ] 외부에서 API 접근 가능
+- [ ] 자동 스케줄러 작동 확인 (오전/오후 7시)
+- [ ] Slack 로깅 연동 확인
+
+### 9. 문제 해결
+```bash
+# 서비스 로그 확인
+sudo journalctl -u sms-sender.service -f
+
+# 서비스 재시작
+sudo systemctl restart sms-sender.service
+
+# 방화벽 규칙 확인
+sudo gcloud compute firewall-rules list | grep allow-sms-server
+
+# 포트 사용 확인
+sudo netstat -tlnp | grep :8000
+```
+
+### 10. 로컬에서 배포 스크립트 (참고용)
+```bash
+#!/bin/bash
+# deploy_sms_server.sh
+
+echo "📡 SMS 서버 배포 시작..."
+
+# 1. 코드 서버로 복사
+echo "📂 코드 복사 중..."
+scp -r sms_sender_server intention-dashboard:~/
+
+# 2. 서버에서 환경 설정 및 서비스 실행
+echo "🔧 서버 환경 설정 중..."
+ssh intention-dashboard << 'EOF'
+    cd sms_sender_server
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    
+    # systemd 서비스 등록
+    sudo systemctl enable sms-sender.service
+    sudo systemctl start sms-sender.service
+    
+    # 상태 확인
+    sudo systemctl status sms-sender.service
+EOF
+
+echo "✅ SMS 서버 배포 완료!"
+echo "🌐 API 문서: http://34.64.237.127:8000/docs"
+```
