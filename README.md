@@ -218,3 +218,70 @@ FastAPI 생성 API 문서
 ---------
 - **Firestore Console**: https://console.cloud.google.com/firestore/databases/intention-computing/data/panel/chat_users/Anonymous?inv=1&invt=Ab1Haw&project=intention-computing-451401
 - **Dashboard GitHub**: https://github.com/wngjs3/intention_dashboard
+
+## 🚀 운영 배포 정보
+
+### 📡 배포된 서버 정보
+**SMS 서버가 GCP VM에 성공적으로 배포되어 운영 중입니다.**
+
+- **서버 주소**: `34.64.237.127:8000`
+- **API 문서**: http://34.64.237.127:8000/docs
+- **상태 확인**: http://34.64.237.127:8000/ (응답: `{"status":"ok"}`)
+- **배포일**: 2025년 7월 8일
+
+### ⚡ 자동화된 기능들
+- ✅ **자동 SMS 발송**: 매일 **오전 7시**, **오후 7시**에 실제 사용자들에게 개인화된 사용량 알림 자동 전송
+- ✅ **서비스 자동 시작**: 서버 재부팅 시 자동으로 SMS 서비스 시작 (`systemd` 서비스로 등록)
+- ✅ **24/7 운영**: 콘솔에서 수동으로 삭제하기 전까지 지속적으로 운영
+- ✅ **오류 복구**: 서비스 장애 시 자동 재시작 (3초 후 재시작)
+
+### 🎯 운영 중인 스케줄러
+```
+매일 오전 7시 (KST) → role="real" 사용자들에게 전날 사용량 개별 SMS 발송
+매일 오후 7시 (KST) → role="real" 사용자들에게 당일 사용량 개별 SMS 발송
+```
+
+### 🔧 서버 관리 명령어
+SSH로 서버 접속 후 사용 가능한 명령어들:
+
+```bash
+# 서비스 상태 확인
+sudo systemctl status sms-sender.service
+
+# 서비스 재시작
+sudo systemctl restart sms-sender.service
+
+# 서비스 중지
+sudo systemctl stop sms-sender.service
+
+# 실시간 로그 확인
+sudo journalctl -u sms-sender.service -f
+
+# 최근 로그 50줄 확인
+sudo journalctl -u sms-sender.service -n 50
+```
+
+### 📊 모니터링 및 테스트
+```bash
+# API 상태 확인
+curl http://34.64.237.127:8000/
+
+# 오전 알림 수동 테스트
+curl -X POST http://34.64.237.127:8000/test/morning-notification
+
+# 오후 알림 수동 테스트  
+curl -X POST http://34.64.237.127:8000/test/evening-notification
+
+# Firestore 연결 테스트
+curl http://34.64.237.127:8000/firestore/personal_dashboard/filter?field_name=role&field_value=real
+```
+
+### 🛡️ 보안 설정
+- **방화벽**: GCP 방화벽 규칙으로 8000번 포트만 외부 접근 허용
+- **인증**: GCP 서비스 계정을 통한 Firestore 접근
+- **환경변수**: 민감한 정보 (API 키, 웹훅 URL 등)는 `.env` 파일로 보호
+
+### ⚠️ 중요 사항
+- **서버 중지**: GCP 콘솔에서 VM 인스턴스를 중지하거나 삭제하기 전까지 계속 운영됩니다
+- **비용 관리**: VM 운영 비용이 지속적으로 발생하니 필요시 콘솔에서 관리하세요
+- **로그 모니터링**: Slack으로 SMS 발송 결과가 실시간으로 알림되므로 모니터링 가능합니다
