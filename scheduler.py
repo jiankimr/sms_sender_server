@@ -5,6 +5,7 @@ APScheduler 기반 정기 브로드캐스트 관리
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+import pytz
 
 from config import TIMEZONE
 from sms_sender import send_sms
@@ -13,12 +14,19 @@ from slack_logger import slack_logger
 
 __all__ = ["start_scheduler"]
 
+# 한국 시간대 명시적 설정
+KST = pytz.timezone('Asia/Seoul')
+
 
 def _morning_usage_notification():
     """오전 7시: 전날 사용량 알림 (real role 사용자만)"""
     try:
-        # 전날 날짜 계산 (KST 기준)
-        yesterday = (datetime.now(TIMEZONE) - timedelta(days=1)).strftime('%Y-%m-%d')
+        # 전날 날짜 계산 (KST 기준으로 명시적 설정)
+        kst_now = datetime.now(KST)
+        yesterday = (kst_now - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        print(f"[Morning Scheduler] 현재 KST 시간: {kst_now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"[Morning Scheduler] 조회 대상 날짜: {yesterday}")
         
         # real role을 가진 사용자들만 조회
         users_with_phone = get_users_with_phone(role_filter="real")
@@ -80,8 +88,12 @@ def _morning_usage_notification():
 def _evening_usage_notification():
     """오후 7시: 당일 사용량 알림 (real role 사용자만)"""
     try:
-        # 오늘 날짜 계산 (KST 기준)
-        today = datetime.now(TIMEZONE).strftime('%Y-%m-%d')
+        # 오늘 날짜 계산 (KST 기준으로 명시적 설정)
+        kst_now = datetime.now(KST)
+        today = kst_now.strftime('%Y-%m-%d')
+        
+        print(f"[Evening Scheduler] 현재 KST 시간: {kst_now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"[Evening Scheduler] 조회 대상 날짜: {today}")
         
         # real role을 가진 사용자들만 조회
         users_with_phone = get_users_with_phone(role_filter="real")
@@ -141,16 +153,18 @@ def _evening_usage_notification():
 
 
 def start_scheduler():
-    scheduler = BackgroundScheduler(timezone=TIMEZONE)
+    # 스케줄러를 한국 시간대로 명시적 설정
+    scheduler = BackgroundScheduler(timezone=KST)
     
-    # 개인화된 사용량 알림 스케줄 추가
-    scheduler.add_job(_morning_usage_notification, CronTrigger(hour=7, minute=0), name="morning_usage_notification")
-    scheduler.add_job(_evening_usage_notification, CronTrigger(hour=19, minute=0), name="evening_usage_notification")
+    # 개인화된 사용량 알림 스케줄 추가 (한국 시간 기준)
+    scheduler.add_job(_morning_usage_notification, CronTrigger(hour=7, minute=0, timezone=KST), name="morning_usage_notification")
+    scheduler.add_job(_evening_usage_notification, CronTrigger(hour=19, minute=0, timezone=KST), name="evening_usage_notification")
     
     scheduler.start()
-    print("[Scheduler] real 사용자 대상 사용량 알림 스케줄러 시작됨")
+    print("[Scheduler] real 사용자 대상 사용량 알림 스케줄러 시작됨 (KST 기준)")
     
     # 스케줄러 상태 확인
     print(f"[Scheduler] 등록된 작업 수: {len(scheduler.get_jobs())}")
     for job in scheduler.get_jobs():
-        print(f"[Scheduler] 작업: {job.name} - 다음 실행: {job.next_run_time}")
+        next_run_kst = job.next_run_time.astimezone(KST) if job.next_run_time else None
+        print(f"[Scheduler] 작업: {job.name} - 다음 실행: {next_run_kst}")

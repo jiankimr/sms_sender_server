@@ -276,15 +276,63 @@ curl -X POST http://34.64.237.127:8000/test/evening-notification
 curl http://34.64.237.127:8000/firestore/personal_dashboard/filter?field_name=role&field_value=real
 ```
 
+### 🕐 시간대 설정
+- **서버 시간대**: UTC (협정세계시) - 선배들이 설정한 원래 방식 유지
+- **SMS 알림 시간**: 한국 시간(KST) 기준으로 정확히 동작
+  - 오전 7시 KST = UTC 기준 오후 10시 (전날)
+  - 오후 7시 KST = UTC 기준 오전 10시
+- **시간대 처리**: 코드에서 `pytz.timezone('Asia/Seoul')` 사용하여 자동 변환
+- **스케줄러 설정**: APScheduler에서 `timezone=KST` 명시적 지정으로 서버 시간대와 무관하게 동작
+
+```bash
+# 서버 시간 확인 (UTC)
+ssh jiankimr@34.64.237.127 "date"
+# 출력 예시: Wed Jul 9 04:50:42 UTC 2025
+
+# 스케줄러 로그 확인 (KST 기준)
+sudo journalctl -u sms-sender.service -f
+# 출력 예시:
+# [Scheduler] evening_usage_notification - 다음 실행: 2025-07-09 19:00:00+09:00
+# [Scheduler] morning_usage_notification - 다음 실행: 2025-07-10 07:00:00+09:00
+```
+
 ### 🛡️ 보안 설정
 - **방화벽**: GCP 방화벽 규칙으로 8000번 포트만 외부 접근 허용
 - **인증**: GCP 서비스 계정을 통한 Firestore 접근
 - **환경변수**: 민감한 정보 (API 키, 웹훅 URL 등)는 `.env` 파일로 보호
 
+### 📋 현재 서버 상태 확인점
+```bash
+# 서비스 상태 확인
+sudo systemctl status sms-sender.service
+# 출력 예시:
+# ● sms-sender.service - SMS Sender FastAPI Service
+#      Active: active (running) since Wed 2025-07-09 04:44:08 UTC; 27min ago
+#      Memory: 72.3M
+
+# API 서버 응답 확인
+curl http://34.64.237.127:8000/
+# 출력 예시: {"status":"ok"}
+
+# 스케줄러 로그 확인
+sudo journalctl -u sms-sender.service -n 20 | grep -E "(Scheduler|KST|다음 실행)"
+# 출력 예시:
+# [Scheduler] real 사용자 대상 사용량 알림 스케줄러 시작됨 (KST 기준)
+# [Scheduler] 작업: evening_usage_notification - 다음 실행: 2025-07-09 19:00:00+09:00
+# [Scheduler] 작업: morning_usage_notification - 다음 실행: 2025-07-10 07:00:00+09:00
+
+# SMS 발송 결과 확인
+sudo journalctl -u sms-sender.service -n 30 | grep -E "(전송 완료|알림 완료)"
+# 출력 예시:
+# [Morning Scheduler] AnxiousSpinoza님(AnxiousSpinoza) 전날 사용량 알림 전송 완료: 01038134350
+# [Morning Scheduler] 전날 real 사용량 알림 완료: 6/6명 전송 성공, 0명 실패
+```
+
 ### ⚠️ 중요 사항
 - **서버 중지**: GCP 콘솔에서 VM 인스턴스를 중지하거나 삭제하기 전까지 계속 운영됩니다
 - **비용 관리**: VM 운영 비용이 지속적으로 발생하니 필요시 콘솔에서 관리하세요
 - **로그 모니터링**: Slack으로 SMS 발송 결과가 실시간으로 알림되므로 모니터링 가능합니다
+- **시간대 검증**: 세션 데이터는 UTC+9(KST)로 저장되고, 스케줄러도 KST 기준으로 동작하여 시간대 일치 확인됨
 
 ---
 
