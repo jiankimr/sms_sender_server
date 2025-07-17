@@ -30,6 +30,9 @@ def _morning_usage_notification():
         
         # real role을 가진 사용자들만 조회
         users_with_phone = get_users_with_phone(role_filter="real")
+
+        # 현재 날짜 및 시간 (KST)
+        now_kst = datetime.now(KST)
         
         if not users_with_phone:
             print("[Morning Scheduler] real role을 가진 사용자가 없습니다.")
@@ -41,6 +44,20 @@ def _morning_usage_notification():
         
         for user_data in users_with_phone:
             try:
+                # 사용자별 날짜 필터링
+                dashboard_data = user_data.get('dashboard_data', {})
+                start_date = dashboard_data.get('start_date')
+                end_date = dashboard_data.get('end_date')
+
+                if isinstance(start_date, datetime):
+                    start_date = start_date.astimezone(KST)
+                if isinstance(end_date, datetime):
+                    end_date = end_date.astimezone(KST)
+
+                # 날짜 유효성 검사
+                if not (start_date and start_date <= now_kst and (not end_date or end_date >= now_kst)):
+                    continue
+
                 user_id = user_data.get('user_id')
                 username = user_data.get('name', user_data.get('user_id', '사용자'))
                 phone = user_data.get('phone', '').strip()
@@ -103,6 +120,9 @@ def _evening_usage_notification():
         
         # real role을 가진 사용자들만 조회
         users_with_phone = get_users_with_phone(role_filter="real")
+
+        # 현재 날짜 및 시간 (KST)
+        now_kst = datetime.now(KST)
         
         if not users_with_phone:
             print("[Evening Scheduler] real role을 가진 사용자가 없습니다.")
@@ -114,6 +134,20 @@ def _evening_usage_notification():
         
         for user_data in users_with_phone:
             try:
+                # 사용자별 날짜 필터링
+                dashboard_data = user_data.get('dashboard_data', {})
+                start_date = dashboard_data.get('start_date')
+                end_date = dashboard_data.get('end_date')
+
+                if isinstance(start_date, datetime):
+                    start_date = start_date.astimezone(KST)
+                if isinstance(end_date, datetime):
+                    end_date = end_date.astimezone(KST)
+
+                # 날짜 유효성 검사
+                if not (start_date and start_date <= now_kst and (not end_date or end_date >= now_kst)):
+                    continue
+
                 user_id = user_data.get('user_id')
                 username = user_data.get('name', user_data.get('user_id', '사용자'))
                 phone = user_data.get('phone', '').strip()
@@ -131,9 +165,9 @@ def _evening_usage_notification():
                 # 당일 사용 시간이 2시간(7200초) 미만인 경우에만 알림 발송
                 if total_seconds < 7200:
                     if total_seconds > 0:
-                        message = f"{username}님, 오늘 현재까지 {formatted_time} 사용하셨어요. 목표인 2시간까지 남은 시간도 화이팅! 🔥"
+                        message = f"{username}님, 오늘 현재까지 {formatted_time} 사용하셨어요. 남은 시간도 화이팅! 🔥"
                     else:
-                        message = f"{username}님, 오늘은 아직 앱을 사용하지 않으셨네요. 지금부터 2시간 도전 어떠세요? 💪"
+                        message = f"{username}님, 오늘은 아직 앱을 사용하지 않으셨네요. 지금부터 어플 실행 어떠세요? 💪"
                     
                     # 사용자 정보 생성 (Slack 로깅용)
                     user_info = f"사용자 ID: {user_id}, 이름: {username}, Role: {user_data.get('role', 'N/A')}"
