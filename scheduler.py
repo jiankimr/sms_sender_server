@@ -52,31 +52,37 @@ def _morning_usage_notification():
                 # intention_app_user 컬렉션에서 각 사용자의 전날 사용량 조회
                 usage_data = get_user_daily_usage(user_id, yesterday, yesterday)
                 
-                session_count = usage_data['session_count']
+                total_seconds = usage_data['total_usage']['total_seconds']
                 formatted_time = usage_data['total_usage']['formatted']
                 
-                # 개인화된 메시지 생성
-                if session_count > 0:
-                    message = f"{username}님, 어제 {formatted_time} 동안 사용하셨군요! 오늘도 열심히 사용해주세요! 💪"
+                # 전날 사용 시간이 2시간(7200초) 미만인 경우에만 알림 발송
+                if total_seconds < 7200:
+                    if total_seconds > 0:
+                        message = f"{username}님, 어제 {formatted_time} 동안 사용하셨네요. 오늘은 조금만 더 힘내봐요! 💪"
+                    else:
+                        message = f"{username}님, 어제는 앱을 사용하지 않으셨네요. 오늘은 앱을 꼭 사용해보세요! 💻"
+                    
+                    # 사용자 정보 생성 (Slack 로깅용)
+                    user_info = f"사용자 ID: {user_id}, 이름: {username}, Role: {user_data.get('role', 'N/A')}"
+                    
+                    # 해당 사용자의 전화번호로 개인화된 메시지 전송
+                    try:
+                        send_sms(phone, message, user_info)
+                        success_count += 1
+                        print(f"[Morning Scheduler] {username}님({user_id}) 전날 사용량 알림 전송 완료: {phone}")
+                    except Exception as e:
+                        print(f"[Morning Scheduler] SMS 전송 실패 ({phone}, {username}): {e}")
+                        failed_count += 1
                 else:
-                    message = f"{username}님, 어제는 앱을 사용하지 않으셨네요. 오늘은 열심히 사용해주세요! 📱"
-                
-                # 사용자 정보 생성 (Slack 로깅용)
-                user_info = f"사용자 ID: {user_id}, 이름: {username}, Role: {user_data.get('role', 'N/A')}"
-                
-                # 해당 사용자의 전화번호로 개인화된 메시지 전송
-                try:
-                    send_sms(phone, message, user_info)
-                    success_count += 1
-                    print(f"[Morning Scheduler] {username}님({user_id}) 전날 사용량 알림 전송 완료: {phone}")
-                except Exception as e:
-                    print(f"[Morning Scheduler] SMS 전송 실패 ({phone}, {username}): {e}")
-                    failed_count += 1
-                
+                    # 사용 시간이 2시간 이상인 경우 건너뛰기
+                    print(f"[Morning Scheduler] {username}님({user_id})은/는 전날 목표 사용 시간을 달성하여 알림을 건너뜁니다.")
+
             except Exception as e:
-                print(f"[Morning Scheduler] User {user_id} 사용량 조회 실패: {e}")
+                print(f"[Morning Scheduler] User {user_id} 처리 실패: {e}")
+                failed_count += 1
         
-        print(f"[Morning Scheduler] 전날 real 사용량 알림 완료: {success_count}/{total_count}명 전송 성공, {failed_count}명 실패")
+        # 실제 발송 대상자 수 조정 (total_count는 조회된 전체 사용자 수 유지)
+        print(f"[Morning Scheduler] 전날 사용량 2시간 미만 real 사용자 대상 알림 완료: {success_count}명 전송 성공, {failed_count}명 실패")
         
         # 슬랙에 최종 결과 로깅
         slack_logger.log_broadcast_result(total_count, success_count, failed_count)
@@ -119,31 +125,36 @@ def _evening_usage_notification():
                 # intention_app_user 컬렉션에서 각 사용자의 오늘 사용량 조회
                 usage_data = get_user_daily_usage(user_id, today, today)
                 
-                session_count = usage_data['session_count']
+                total_seconds = usage_data['total_usage']['total_seconds']
                 formatted_time = usage_data['total_usage']['formatted']
-                
-                # 개인화된 메시지 생성
-                if session_count > 0:
-                    message = f"{username}님, 오늘 현재까지 {formatted_time} 동안 사용하셨군요! 남은 시간도 열심히 사용해주세요! 🔥"
+
+                # 당일 사용 시간이 2시간(7200초) 미만인 경우에만 알림 발송
+                if total_seconds < 7200:
+                    if total_seconds > 0:
+                        message = f"{username}님, 오늘 현재까지 {formatted_time} 사용하셨어요. 목표인 2시간까지 남은 시간도 화이팅! 🔥"
+                    else:
+                        message = f"{username}님, 오늘은 아직 앱을 사용하지 않으셨네요. 지금부터 2시간 도전 어떠세요? 💪"
+                    
+                    # 사용자 정보 생성 (Slack 로깅용)
+                    user_info = f"사용자 ID: {user_id}, 이름: {username}, Role: {user_data.get('role', 'N/A')}"
+                    
+                    # 해당 사용자의 전화번호로 개인화된 메시지 전송
+                    try:
+                        send_sms(phone, message, user_info)
+                        success_count += 1
+                        print(f"[Evening Scheduler] {username}님({user_id}) 당일 사용량 알림 전송 완료: {phone}")
+                    except Exception as e:
+                        print(f"[Evening Scheduler] SMS 전송 실패 ({phone}, {username}): {e}")
+                        failed_count += 1
                 else:
-                    message = f"{username}님, 오늘은 아직 앱을 사용하지 않으셨네요. 남은 시간 동안 열심히 사용해주세요! 💪"
-                
-                # 사용자 정보 생성 (Slack 로깅용)
-                user_info = f"사용자 ID: {user_id}, 이름: {username}, Role: {user_data.get('role', 'N/A')}"
-                
-                # 해당 사용자의 전화번호로 개인화된 메시지 전송
-                try:
-                    send_sms(phone, message, user_info)
-                    success_count += 1
-                    print(f"[Evening Scheduler] {username}님({user_id}) 당일 사용량 알림 전송 완료: {phone}")
-                except Exception as e:
-                    print(f"[Evening Scheduler] SMS 전송 실패 ({phone}, {username}): {e}")
-                    failed_count += 1
-                
+                    # 사용 시간이 2시간 이상인 경우 건너뛰기
+                    print(f"[Evening Scheduler] {username}님({user_id})은/는 당일 목표 사용 시간을 달성하여 알림을 건너뜁니다.")
+            
             except Exception as e:
-                print(f"[Evening Scheduler] User {user_id} 사용량 조회 실패: {e}")
+                print(f"[Evening Scheduler] User {user_id} 처리 실패: {e}")
+                failed_count += 1
         
-        print(f"[Evening Scheduler] 당일 real 사용량 알림 완료: {success_count}/{total_count}명 전송 성공, {failed_count}명 실패")
+        print(f"[Evening Scheduler] 당일 사용량 2시간 미만 real 사용자 대상 알림 완료: {success_count}명 전송 성공, {failed_count}명 실패")
         
         # 슬랙에 최종 결과 로깅
         slack_logger.log_broadcast_result(total_count, success_count, failed_count)
